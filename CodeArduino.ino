@@ -63,12 +63,14 @@ void stopMotors(int miliseconds)
     delay(miliseconds);
 }
 
-void stopForDuration(unsigned long duration) {
+void stopForDuration(unsigned long duration)
+{
     pidEnabled = false; // Disable PID
-    stopMotors(0); // Stop the motors immediately
+    stopMotors(0);      // Stop the motors immediately
 
     unsigned long startTime = millis(); // Record start time
-    while (millis() - startTime < duration) {
+    while (millis() - startTime < duration)
+    {
         // Keep checking sensors (if needed)
         checkPosition();
     }
@@ -109,7 +111,8 @@ void setLEDColor(int r, int g, int b)
 
 void motorsPID()
 {
-    if (!pidEnabled) {
+    if (!pidEnabled)
+    {
         // If PID is disabled, stop the motors
         stopMotors(0); // Stop without delay
         return;
@@ -196,46 +199,53 @@ void loop()
 
         if (sensorValues[0] < 600 && sensorValues[1] < 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600)
         {
-            stopForDuration(400);
-            int a = 0;
-            while (a != 1)
+            stopForDuration(400); // Stop for 400ms
+            pidEnabled = false;   // Disable PID during correction
+
+            while (true)
             {
-                moveLeft(95,95);
-                checkPosition();
+                moveLeft(95, 95); // Perform correction
+                checkPosition();  // Update sensor readings
                 if (sensorValues[1] < 600 || sensorValues[2] < 600 || sensorValues[3] < 600)
                 {
-                    a = 1;
+                    break; // Exit when condition is met
                 }
             }
+
+            pidEnabled = true; // Re-enable PID
         }
         else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] < 600 && sensorValues[4] < 600)
         {
-            stopForDuration(400);
-            int b = 0;
-            while (b != 1)
+            stopForDuration(400); // Stop for 400ms
+            pidEnabled = false;   // Disable PID during correction
+
+            while (true)
             {
-                moveRight(95,95);
+                moveRight(95, 95); // Perform correction
+                checkPosition();  // Update sensor readings
                 if (sensorValues[1] < 600 || sensorValues[2] < 600 || sensorValues[3] < 600)
                 {
-                    b = 1;
+                    break; // Exit when condition is met
                 }
             }
+
+            pidEnabled = true; // Re-enable PID
         }
         else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600 && lastSensor == 0)
         {
             stopForDuration(300);
-            moveLeft(85,95);
+            moveLeft(85, 95);
             delay(10);
         }
         else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600 && lastSensor == 4)
         {
             stopForDuration(300);
-            moveRight(85,95);
+            moveRight(85, 95);
             delay(10);
         }
         else if (activeSensors >= 4)
         {
-            moveForward(70,40);
+            moveForward(70, 40);
             delay(400);
         }
 
@@ -251,24 +261,30 @@ void loop()
         if (lapCount == 1 && atBifurcation && !pitStopCompleted)
         {
             stopForDuration(250);
-            int o = 0;
-            while (o != 1)
+            pidEnabled = false;
+            while (true)
             {
-                moveRight(80,60);
+                moveRight(80, 60);
                 if (sensorValues[3] < 600 || sensorValues[4] < 600)
                 {
-                    o = 1;
+                    break;
                 }
             }
-            for (int i = 0; i < 100; i++)
+            pidEnabled = true; // Re-enable PID
+
+            // Continue moving for 1 second (non-blocking)
+            unsigned long continueStart = millis();
+            while (millis() - continueStart < 1000)
             {
                 checkPosition();
                 motorsPID();
-                delay(10);
             }
+
+            // Pit stop pause (non-blocking)
             setLEDColor(255, 255, 0);
-            stopMotors(3000);
+            stopForDuration(3000); // Stop for 3 seconds
             Serial.println("Pit stop!");
+
             pitStopCompleted = true;
             lapCount++;
             boolbox = false;
