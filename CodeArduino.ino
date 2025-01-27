@@ -63,6 +63,19 @@ void stopMotors(int miliseconds)
     delay(miliseconds);
 }
 
+void stopForDuration(unsigned long duration) {
+    pidEnabled = false; // Disable PID
+    stopMotors(0); // Stop the motors immediately
+
+    unsigned long startTime = millis(); // Record start time
+    while (millis() - startTime < duration) {
+        // Keep checking sensors (if needed)
+        checkPosition();
+    }
+
+    pidEnabled = true; // Re-enable PID
+}
+
 void moveForward(int leftSpeed, int rightSpeed)
 {
     digitalWrite(Motor1, LOW);
@@ -96,7 +109,11 @@ void setLEDColor(int r, int g, int b)
 
 void motorsPID()
 {
-
+    if (!pidEnabled) {
+        // If PID is disabled, stop the motors
+        stopMotors(0); // Stop without delay
+        return;
+    }
     error = targetPosition - position;
     integral += error;
     derivative = error - lastError;
@@ -168,7 +185,7 @@ void loop()
         while (analogRead(ldrPin) < 1000)
         {
             setLEDColor(255, 255, 0);
-            delay(100);
+            stopMotors(0);
         }
         setLEDColor(0, 255, 0);
         currentState = MOVING;
@@ -179,11 +196,12 @@ void loop()
 
         if (sensorValues[0] < 600 && sensorValues[1] < 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600)
         {
-            stopMotors(400);
+            stopForDuration(400);
             int a = 0;
             while (a != 1)
             {
                 moveLeft(95,95);
+                checkPosition();
                 if (sensorValues[1] < 600 || sensorValues[2] < 600 || sensorValues[3] < 600)
                 {
                     a = 1;
@@ -192,8 +210,7 @@ void loop()
         }
         else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] < 600 && sensorValues[4] < 600)
         {
-            stopMotors(400);
-
+            stopForDuration(400);
             int b = 0;
             while (b != 1)
             {
@@ -206,13 +223,13 @@ void loop()
         }
         else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600 && lastSensor == 0)
         {
-            stopMotors(300);
+            stopForDuration(300);
             moveLeft(85,95);
             delay(10);
         }
         else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600 && lastSensor == 4)
         {
-            stopMotors(300);
+            stopForDuration(300);
             moveRight(85,95);
             delay(10);
         }
@@ -233,7 +250,7 @@ void loop()
         }
         if (lapCount == 1 && atBifurcation && !pitStopCompleted)
         {
-            stopMotors(250);
+            stopForDuration(250);
             int o = 0;
             while (o != 1)
             {
