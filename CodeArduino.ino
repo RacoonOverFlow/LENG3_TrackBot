@@ -5,7 +5,10 @@ enum RobotState
     STOPPED
 };
 
-// Arduino pins used
+#include <SoftwareSerial.h>
+
+#define RX_PIN 2
+#define TX_PIN 4
 #define Motor1 12
 #define Motor2 13
 #define PWMmotor1 3
@@ -19,6 +22,8 @@ enum RobotState
 #define LED_R 5
 #define LED_G 6
 #define LED_B 7
+
+SoftwareSerial mySerial(RX_PIN, TX_PIN); 
 
 int sensorPins[] = {A0, A1, A2, A3, A4};
 int sensorMin[] = {261, 236, 240, 309, 310};
@@ -49,11 +54,23 @@ bool boolbox = false;
 int lastSensor = -1;
 int targetPosition = 2000;
 int lapCount = 0;
-bool pidEnabled = true; 
-int LINE_THRESHOLD = 500; 
+bool pidEnabled = true;
+int LINE_THRESHOLD = 500;
+unsigned long lapStartTime = 0;
+unsigned long totalTime = 0;
 
 // Initial state
 RobotState currentState = WAITING;
+
+void sendToRaspberry(int lap, unsigned long lapTime, unsigned long totalTime) {
+  Serial.print("{\"lap\":");
+  Serial.print(lap);
+  Serial.print(",\"lapTime\":");
+  Serial.print(lapTime / 1000.0, 2);  // Envia o tempo da volta em segundos
+  Serial.print(",\"totalTime\":");
+  Serial.print(totalTime / 1000.0, 2);  // Envia o tempo total em segundos
+  Serial.println("}");
+}
 
 void stopMotors(int miliseconds)
 {
@@ -182,8 +199,9 @@ void loop()
     switch (currentState)
     {
     case WAITING:
-        while (analogRead(ldrPin) < 1000)
+        while (analogRead(ldrPin) < 950)
         {
+            lapStartTime = millis(); 
             setLEDColor(255, 255, 0);
             stopMotors(0);
         }
@@ -202,7 +220,7 @@ void loop()
             {
                 moveLeft(95, 95); // Perform correction
                 checkPosition();  // Update sensor readings
-                if (sensorValues[1] < LINE_THRESHOLD || sensorValues[2] < LINE_THRESHOLD || sensorValues[3] < LINE_THRESHOLD)
+                if (sensorValues[3] < LINE_THRESHOLD)
                 {
                     break; // Exit when condition is met
                 }
@@ -219,7 +237,7 @@ void loop()
             {
                 moveRight(95, 95); // Perform correction
                 checkPosition();   // Update sensor readings
-                if (sensorValues[1] < LINE_THRESHOLD || sensorValues[2] < LINE_THRESHOLD || sensorValues[3] < LINE_THRESHOLD)
+                if (sensorValues[1] < LINE_THRESHOLD)
                 {
                     break; // Exit when condition is met
                 }
@@ -250,7 +268,7 @@ void loop()
             unsigned long start = millis();
             while (millis() - start < 400)
             {
-                moveForward(70,40);
+                moveForward(70, 40);
             }
         }
 
@@ -261,6 +279,10 @@ void loop()
         if (boolbox && activeSensors >= 4)
         {
             lapCount++;
+            unsigned long lapTime = millis() - lapStartTime;  // Calcula o tempo da volta
+            totalTime += lapTime;  // Atualiza o tempo total
+            lapStartTime = millis();  // Reinicia o tempo da próxima volta
+            sendToRaspberry(lapCount, lapTime, totalTime); 
             boolbox = false;
         }
         if (lapCount == 1 && atBifurcation && !pitStopCompleted)
@@ -293,6 +315,10 @@ void loop()
 
             pitStopCompleted = true;
             lapCount++;
+            unsigned long lapTime = millis() - lapStartTime;  // Calcula o tempo da volta
+            totalTime += lapTime;  // Atualiza o tempo total
+            lapStartTime = millis();
+            sendToRaspberry(lapCount, lapTime, totalTime); 
             boolbox = false;
             setLEDColor(0, 255, 0);
         }
@@ -302,7 +328,7 @@ void loop()
             unsigned long start = millis();
             while (millis() - start < 400)
             {
-                moveForward(80,120);
+                moveForward(80, 120);
             }
         }
         else if (lapCount == 3)
