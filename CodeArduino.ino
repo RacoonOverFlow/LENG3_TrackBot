@@ -49,7 +49,8 @@ bool boolbox = false;
 int lastSensor = -1;
 int targetPosition = 2000;
 int lapCount = 0;
-bool pidEnabled = true; // Enable PID by default
+bool pidEnabled = true; 
+int LINE_THRESHOLD = 500; 
 
 // Initial state
 RobotState currentState = WAITING;
@@ -127,6 +128,7 @@ void motorsPID()
     int rightSpeed = constrain(baseSpeed - 8 - int(pidOutput), 20, maxSpeed - 10);
     moveForward(leftSpeed, rightSpeed);
 }
+
 void checkPosition()
 {
     float sum = 0, weightedSum = 0;
@@ -159,25 +161,20 @@ void setup()
 
 void loop()
 {
+    checkPosition();
     int activeSensors = 0;
-    int sensorValues[5] = {
-        analogRead(pvalue0),
-        analogRead(pvalue1),
-        analogRead(pvalue2),
-        analogRead(pvalue3),
-        analogRead(pvalue4)};
     for (int i = 0; i < 5; i++)
     {
-        if (sensorValues[i] < 500)
+        if (sensorValues[i] < LINE_THRESHOLD)
         {
             activeSensors++;
         }
     }
 
-    atBifurcation = (sensorValues[0] < 500 && sensorValues[4] < 500 && sensorValues[2] > 600);
+    atBifurcation = (sensorValues[0] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD);
     for (int i = 0; i < 5; i++)
     {
-        if (sensorValues[i] < 600)
+        if (sensorValues[i] < LINE_THRESHOLD)
         {
             lastSensor = i;
         }
@@ -197,16 +194,15 @@ void loop()
         checkPosition();
         motorsPID();
 
-        if (sensorValues[0] < 600 && sensorValues[1] < 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600)
+        if (sensorValues[0] < LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
             stopForDuration(400); // Stop for 400ms
             pidEnabled = false;   // Disable PID during correction
-
             while (true)
             {
                 moveLeft(95, 95); // Perform correction
                 checkPosition();  // Update sensor readings
-                if (sensorValues[1] < 600 || sensorValues[2] < 600 || sensorValues[3] < 600)
+                if (sensorValues[1] < LINE_THRESHOLD || sensorValues[2] < LINE_THRESHOLD || sensorValues[3] < LINE_THRESHOLD)
                 {
                     break; // Exit when condition is met
                 }
@@ -214,7 +210,7 @@ void loop()
 
             pidEnabled = true; // Re-enable PID
         }
-        else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] < 600 && sensorValues[4] < 600)
+        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD)
         {
             stopForDuration(400); // Stop for 400ms
             pidEnabled = false;   // Disable PID during correction
@@ -222,8 +218,8 @@ void loop()
             while (true)
             {
                 moveRight(95, 95); // Perform correction
-                checkPosition();  // Update sensor readings
-                if (sensorValues[1] < 600 || sensorValues[2] < 600 || sensorValues[3] < 600)
+                checkPosition();   // Update sensor readings
+                if (sensorValues[1] < LINE_THRESHOLD || sensorValues[2] < LINE_THRESHOLD || sensorValues[3] < LINE_THRESHOLD)
                 {
                     break; // Exit when condition is met
                 }
@@ -231,22 +227,31 @@ void loop()
 
             pidEnabled = true; // Re-enable PID
         }
-        else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600 && lastSensor == 0)
+        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && lastSensor == 0)
         {
-            stopForDuration(300);
-            moveLeft(85, 95);
-            delay(10);
+            unsigned long start = millis();
+            while (millis() - start < 300)
+            {
+                stopForDuration(200);
+                moveLeft(85, 95);
+            }
         }
-        else if (sensorValues[0] > 600 && sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] > 600 && sensorValues[4] > 600 && lastSensor == 4)
+        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && lastSensor == 4)
         {
-            stopForDuration(300);
-            moveRight(85, 95);
-            delay(10);
+            unsigned long start = millis();
+            while (millis() - start < 300)
+            {
+                stopForDuration(200);
+                moveRight(85, 95);
+            }
         }
         else if (activeSensors >= 4)
         {
-            moveForward(70, 40);
-            delay(400);
+            unsigned long start = millis();
+            while (millis() - start < 400)
+            {
+                moveForward(70,40);
+            }
         }
 
         if (atBifurcation)
@@ -265,7 +270,8 @@ void loop()
             while (true)
             {
                 moveRight(80, 60);
-                if (sensorValues[3] < 600 || sensorValues[4] < 600)
+                checkPosition();
+                if (sensorValues[2] < LINE_THRESHOLD || sensorValues[3] < LINE_THRESHOLD)
                 {
                     break;
                 }
@@ -293,8 +299,11 @@ void loop()
 
         if (atBifurcation && lapCount != 1)
         {
-            moveForward(80, 120);
-            delay(500);
+            unsigned long start = millis();
+            while (millis() - start < 400)
+            {
+                moveForward(80,120);
+            }
         }
         else if (lapCount == 3)
         {
@@ -312,7 +321,7 @@ void loop()
         break;
 
     case STOPPED:
-        stopMotors(1000);
+        stopForDuration(1000);
         setLEDColor(255, 0, 0);
         break;
     }
