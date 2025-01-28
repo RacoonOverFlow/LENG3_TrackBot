@@ -23,7 +23,7 @@ enum RobotState
 #define LED_G 6
 #define LED_B 7
 
-SoftwareSerial mySerial(RX_PIN, TX_PIN); 
+SoftwareSerial mySerial(RX_PIN, TX_PIN);
 
 int sensorPins[] = {A0, A1, A2, A3, A4};
 int sensorMin[] = {261, 236, 240, 309, 310};
@@ -62,14 +62,15 @@ unsigned long totalTime = 0;
 // Initial state
 RobotState currentState = WAITING;
 
-void sendToRaspberry(int lap, unsigned long lapTime, unsigned long totalTime) {
-  Serial.print("{\"lap\":");
-  Serial.print(lap);
-  Serial.print(",\"lapTime\":");
-  Serial.print(lapTime / 1000.0, 2);  // Envia o tempo da volta em segundos
-  Serial.print(",\"totalTime\":");
-  Serial.print(totalTime / 1000.0, 2);  // Envia o tempo total em segundos
-  Serial.println("}");
+void sendToRaspberry(int lap, unsigned long lapTime, unsigned long totalTime)
+{
+    Serial.print("{\"lap\":");
+    Serial.print(lap);
+    Serial.print(",\"lapTime\":");
+    Serial.print(lapTime / 1000.0, 2); // Envia o tempo da volta em segundos
+    Serial.print(",\"totalTime\":");
+    Serial.print(totalTime / 1000.0, 2); // Envia o tempo total em segundos
+    Serial.println("}");
 }
 
 void stopMotors(int miliseconds)
@@ -103,7 +104,13 @@ void moveForward(int leftSpeed, int rightSpeed)
     analogWrite(PWMmotor1, leftSpeed);
     analogWrite(PWMmotor2, rightSpeed);
 }
-
+void moveBackwards(int leftSpeed, int rightSpeed)
+{
+    digitalWrite(Motor1, HIGH);
+    digitalWrite(Motor2, LOW);
+    analogWrite(PWMmotor1, leftSpeed);
+    analogWrite(PWMmotor2, rightSpeed);
+}
 void moveRight(int leftSpeed, int rightSpeed)
 {
     digitalWrite(Motor1, LOW);
@@ -201,7 +208,7 @@ void loop()
     case WAITING:
         while (analogRead(ldrPin) < 950)
         {
-            lapStartTime = millis(); 
+            lapStartTime = millis();
             setLEDColor(255, 255, 0);
             stopMotors(0);
         }
@@ -263,6 +270,19 @@ void loop()
                 moveRight(85, 95);
             }
         }
+        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
+        {
+            unsigned long start = millis();
+            while (millis() - start < 300)
+            {
+                moveBackwards(70, 40);
+                checkPosition();
+                if (error < 1000)
+                {
+                    break;
+                }
+            }
+        }
         else if (activeSensors >= 4)
         {
             unsigned long start = millis();
@@ -279,10 +299,10 @@ void loop()
         if (boolbox && activeSensors >= 4)
         {
             lapCount++;
-            unsigned long lapTime = millis() - lapStartTime;  // Calcula o tempo da volta
-            totalTime += lapTime;  // Atualiza o tempo total
-            lapStartTime = millis();  // Reinicia o tempo da próxima volta
-            sendToRaspberry(lapCount, lapTime, totalTime); 
+            unsigned long lapTime = millis() - lapStartTime; // Calcula o tempo da volta
+            totalTime += lapTime;                            // Atualiza o tempo total
+            lapStartTime = millis();                         // Reinicia o tempo da próxima volta
+            sendToRaspberry(lapCount, lapTime, totalTime);
             boolbox = false;
         }
         if (lapCount == 1 && atBifurcation && !pitStopCompleted)
@@ -315,10 +335,10 @@ void loop()
 
             pitStopCompleted = true;
             lapCount++;
-            unsigned long lapTime = millis() - lapStartTime;  // Calcula o tempo da volta
-            totalTime += lapTime;  // Atualiza o tempo total
+            unsigned long lapTime = millis() - lapStartTime; // Calcula o tempo da volta
+            totalTime += lapTime;                            // Atualiza o tempo total
             lapStartTime = millis();
-            sendToRaspberry(lapCount, lapTime, totalTime); 
+            sendToRaspberry(lapCount, lapTime, totalTime);
             boolbox = false;
             setLEDColor(0, 255, 0);
         }
