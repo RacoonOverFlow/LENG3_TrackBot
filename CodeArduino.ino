@@ -7,8 +7,8 @@ enum RobotState
 
 #include <SoftwareSerial.h>
 
-#define RX_PIN 2
-#define TX_PIN 4
+#define RX_PIN 4
+#define TX_PIN 2
 #define Motor1 12
 #define Motor2 13
 #define PWMmotor1 3
@@ -36,9 +36,9 @@ int maxSpeed = 138;
 
 // PID control variables
 // Valores iniciais mais conservadores:
-float Kp = 13.0;  // Ganho proporcional
+float Kp = 12.0;  // Ganho proporcional
 float Ki = 0.0; // Correção de erro acumulado
-float Kd = 0.8;   // Amortecimento
+float Kd = 1;   // Amortecimento
 
 float integral = 0;
 float derivative = 0;
@@ -66,13 +66,13 @@ RobotState currentState = WAITING;
 
 void sendToRaspberry(int lap, unsigned long lapTime, unsigned long totalTime)
 {
-    Serial.print("{\"lap\":");
-    Serial.print(lap);
-    Serial.print(",\"lapTime\":");
-    Serial.print(lapTime / 1000.0, 2); // Envia o tempo da volta em segundos
-    Serial.print(",\"totalTime\":");
-    Serial.print(totalTime / 1000.0, 2); // Envia o tempo total em segundos
-    Serial.println("}");
+    mySerial.print("{\"lap\":");
+    mySerial.print(lap);
+    mySerial.print(",\"lapTime\":");
+    mySerial.print(lapTime / 1000.0, 2); // Envia o tempo da volta em segundos
+    mySerial.print(",\"totalTime\":");
+    mySerial.print(totalTime / 1000.0, 2); // Envia o tempo total em segundos
+    mySerial.println("}");
 }
 
 void stopMotors(int miliseconds)
