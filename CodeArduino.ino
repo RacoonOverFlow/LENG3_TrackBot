@@ -31,14 +31,14 @@ int sensorMax[] = {930, 930, 930, 930, 930};
 float sensorValues[5] = {0};
 
 // Motor speed variables
-int baseSpeed = 120;
-int maxSpeed = 138;
+int baseSpeed = 135;
+int maxSpeed = 150;
 
 // PID control variables
 // Valores iniciais mais conservadores:
-float Kp = 12.0;  // Ganho proporcional
-float Ki = 0.0; // Correção de erro acumulado
-float Kd = 1;   // Amortecimento
+float Kp = 12.5; // Ganho proporcional
+float Ki = 0.0;  // Correção de erro acumulado
+float Kd = 1;    // Amortecimento
 
 float integral = 0;
 float derivative = 0;
@@ -56,7 +56,7 @@ int lastSensor = -1;
 int targetPosition = 2000;
 int lapCount = 0;
 bool pidEnabled = true;
-int LINE_THRESHOLD = 450;
+int LINE_THRESHOLD = 550;
 unsigned long lapStartTime = 0;
 unsigned long totalTime = 0;
 bool only2 = false;
@@ -265,19 +265,27 @@ void loop()
         else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && (lastSensor == 0 || lastSensor == 1))
         {
             unsigned long start = millis();
-            while (millis() - start < 300)
+            while (true)
             {
                 stopForDuration(200);
                 moveLeft(85, 95);
+                if (only2)
+                {
+                    break;
+                }
             }
         }
         else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && (lastSensor == 4 || lastSensor == 3))
         {
             unsigned long start = millis();
-            while (millis() - start < 300)
+            while (true)
             {
                 stopForDuration(200);
                 moveRight(85, 95);
+                if (only2)
+                {
+                    break;
+                }
             }
         }
         else if (activeSensors >= 4)
@@ -291,14 +299,17 @@ void loop()
         else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
             unsigned long start = millis();
-            while (millis() - start < 20)
+            if (milis() - start > 3000)
             {
-                moveLeft(30, 120);
-                checkPosition();
-                only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                if (only2)
+                while (true)
                 {
-                    break; // Exit when condition is met
+                    moveBackwards(150, 130);
+                    checkPosition();
+                    only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
+                    if (only2)
+                    {
+                        break; // Exit when condition is met
+                    }
                 }
             }
         }
