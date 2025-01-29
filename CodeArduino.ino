@@ -35,10 +35,10 @@ int baseSpeed = 135;
 int maxSpeed = 150;
 
 // PID control variables
-// Valores iniciais mais conservadores:
-float Kp = 12.5; // Ganho proporcional
-float Ki = 0.0;  // Correção de erro acumulado
-float Kd = 1;    // Amortecimento
+
+float Kp = 12.5;
+float Ki = 0.0;
+float Kd = 1;
 
 float integral = 0;
 float derivative = 0;
