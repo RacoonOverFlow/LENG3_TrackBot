@@ -210,10 +210,10 @@ void loop()
         while (analogRead(ldrPin) < 980)
         {
             lapStartTime = millis();
-            setLEDColor(255, 255, 0);
+            setLEDColor(0, 255, 255);
             stopMotors(0);
         }
-        setLEDColor(0, 255, 0);
+        setLEDColor(255, 0, 0);
         currentState = MOVING;
         break;
     case MOVING:
@@ -332,7 +332,7 @@ void loop()
             }
 
             // Pit stop pause (non-blocking)
-            setLEDColor(255, 255, 0);
+            setLEDColor(255, 255, 255);
             stopForDuration(3000); // Stop for 3 seconds
             Serial.println("Pit stop!");
 
@@ -343,7 +343,7 @@ void loop()
             lapStartTime = millis();
             sendToRaspberry(lapCount, lapTime, totalTime);
             boolbox = false;
-            setLEDColor(0, 255, 0);
+            setLEDColor(255, 0, 0);
         }
 
         if (atBifurcation && lapCount != 1)
@@ -359,9 +359,9 @@ void loop()
             currentState = STOPPED;
         }
 
-        if (abs(error) < 300)
+        if (abs(error) < 400)
         {
-            setLEDColor(0, 0, 255);
+            setLEDColor(255, 0, 0);
         }
         else
         {
@@ -371,7 +371,7 @@ void loop()
 
     case STOPPED:
         stopForDuration(1000);
-        setLEDColor(255, 0, 0);
+        setLEDColor(100, 100, 255);
         break;
     }
 }
