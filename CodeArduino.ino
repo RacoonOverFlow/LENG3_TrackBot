@@ -200,7 +200,7 @@ void loop()
         }
     }
 
-    atBifurcation = ((sensorValues[0] < LINE_THRESHOLD || sensorValues[1] < LINE_THRESHOLD) && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD);
+    atBifurcation = ((sensorValues[0] < LINE_THRESHOLD) && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD);
 
     for (int i = 0; i < 5; i++)
     {
