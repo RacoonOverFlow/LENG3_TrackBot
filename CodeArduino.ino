@@ -31,14 +31,14 @@ int sensorMax[] = {930, 930, 930, 930, 930};
 float sensorValues[5] = {0};
 
 // Motor speed variables
-int baseSpeed = 135;
-int maxSpeed = 150;
+int baseSpeed = 120;
+int maxSpeed = 140;
 
 // PID control variables
 
-float Kp = 12.5;
-float Ki = 0.0;
-float Kd = 1;
+float Kp = 12;
+float Ki = 0;
+float Kd = 1.5;
 
 float integral = 0;
 float derivative = 0;
@@ -56,7 +56,7 @@ int lastSensor = -1;
 int targetPosition = 2000;
 int lapCount = 0;
 bool pidEnabled = true;
-int LINE_THRESHOLD = 550;
+int LINE_THRESHOLD = 600;
 unsigned long lapStartTime = 0;
 unsigned long totalTime = 0;
 bool only2 = false;
@@ -68,9 +68,9 @@ void sendToRaspberry(int lap, unsigned long lapTime, unsigned long totalTime)
 {
     mySerial.print("{\"lap\":");
     mySerial.print(lap);
-    mySerial.print(",\"lapTime\":");
+    mySerial.print(",\"lap_time\":");
     mySerial.print(lapTime / 1000.0, 2); // Envia o tempo da volta em segundos
-    mySerial.print(",\"totalTime\":");
+    mySerial.print(",\"total_time\":");
     mySerial.print(totalTime / 1000.0, 2); // Envia o tempo total em segundos
     mySerial.println("}");
 }
@@ -170,17 +170,6 @@ void checkPosition()
     position = (sum == 0) ? 2000 : weightedSum / sum; // Default to center if no line
 }
 
-void countActiveSensors(){
-        int activeSensors = 0;
-    for (int i = 0; i < 5; i++)
-    {
-        if (sensorValues[i] < LINE_THRESHOLD)
-        {
-            activeSensors++;
-        }
-    }
-}
-
 void setup()
 {
     pinMode(Motor1, OUTPUT);
@@ -193,6 +182,7 @@ void setup()
     pinMode(pvalue3, INPUT);
     pinMode(pvalue4, INPUT);
 
+    mySerial.begin(9600);    
     Serial.begin(9600);
     lapCount = 0;
     boolbox = false;
@@ -201,8 +191,16 @@ void setup()
 void loop()
 {
     checkPosition();
-    countActiveSensors();
-    atBifurcation = ((sensorValues[0] < LINE_THRESHOLD || sensorValues[1] < LINE_THRESHOLD) && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD));
+    int activeSensors = 0;
+    for (int i = 0; i < 5; i++)
+    {
+        if (sensorValues[i] < LINE_THRESHOLD)
+        {
+            activeSensors++;
+        }
+    }
+
+    atBifurcation = ((sensorValues[0] < LINE_THRESHOLD || sensorValues[1] < LINE_THRESHOLD) && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD);
 
     for (int i = 0; i < 5; i++)
     {
@@ -236,7 +234,7 @@ void loop()
                 moveLeft(85, 120); // Perform correction
                 checkPosition();   // Update sensor readings
                 only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                if (only2)
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
                     break; // Exit when condition is met
                 }
@@ -254,7 +252,7 @@ void loop()
                 moveRight(125, 105); // Perform correction
                 checkPosition();     // Update sensor readings
                 only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                if (only2 || sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
                     break; // Exit when condition is met
                 }
@@ -262,61 +260,62 @@ void loop()
 
             pidEnabled = true; // Re-enable PID
         }
-        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && (lastSensor == 0 || lastSensor == 1))
+        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD)
         {
-            unsigned long start = millis();
+            pidEnabled = false; // Disable PID during correction
+
             while (true)
             {
-                stopForDuration(200);
-                moveLeft(85, 95);
-                if (only2)
+                moveRight(125, 80); // Perform correction
+                checkPosition();    // Update sensor readings
+                only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
-                    break;
+                    break; // Exit when condition is met
                 }
             }
+
+            pidEnabled = true; // Re-enable PID
         }
-        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && (lastSensor == 4 || lastSensor == 3))
+        else if (sensorValues[0] < LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
-            unsigned long start = millis();
+
+            pidEnabled = false; // Disable PID during correction
             while (true)
             {
-                stopForDuration(200);
-                moveRight(85, 95);
-                if (only2)
+                moveLeft(90, 110); // Perform correction
+                checkPosition();   // Update sensor readings
+                only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
-                    break;
+                    break; // Exit when condition is met
                 }
             }
+
+            pidEnabled = true; // Re-enable PID
         }
         else if (activeSensors >= 4)
         {
+            pidEnabled = false;
             unsigned long start = millis();
             while (millis() - start < 800)
             {
-                moveForward(125, 100);
+                moveForward(118, 100);
             }
+            pidEnabled = true;
         }
-        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
+        else if ((sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD) && (position > 3000 || position < 1000 || position == 2000))
         {
-            static unsigned long lostTime = 0; // Persistent timer
-
-            if (lostTime == 0)
-            { // First detection
-                lostTime = millis();
-            }
-            else if (millis() - lostTime > 4000)
-            { 
-             
-                while (activeSensors < 1)
+                while (true)
                 {
-                    moveBackwards(150, 130);
+                    moveBackwards(100,90);
                     checkPosition();
-                    countActiveSensors();
-                    if (millis() - lostTime > 15000)
-                        break; // 10s timeout
+                if (sensorValues[0] < LINE_THRESHOLD || sensorValues[1] < LINE_THRESHOLD || sensorValues[2] < LINE_THRESHOLD || sensorValues[3] < LINE_THRESHOLD || sensorValues[4] < LINE_THRESHOLD)
+                {
+                    break;
                 }
-                lostTime = 0; // Reset timer
             }
+
         }
 
         if (atBifurcation)
