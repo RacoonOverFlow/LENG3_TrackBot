@@ -155,10 +155,6 @@ void motorsPID()
     int leftSpeed = constrain(baseSpeed + 8 + int(pidOutput), 20, maxSpeed + 8);
     int rightSpeed = constrain(baseSpeed - 8 - int(pidOutput), 20, maxSpeed - 10);
     moveForward(leftSpeed, rightSpeed);
-    Serial.print("leftSpeed: ");
-    Serial.print(leftSpeed);
-    Serial.print("rightSpeed: ");
-    Serial.println(rightSpeed);
 }
 
 void checkPosition()
@@ -172,6 +168,17 @@ void checkPosition()
         weightedSum += sensorValues[i] * i * 1000; // Weight positions as 0, 1000, 2000, 3000, 4000
     }
     position = (sum == 0) ? 2000 : weightedSum / sum; // Default to center if no line
+}
+
+void countActiveSensors(){
+        int activeSensors = 0;
+    for (int i = 0; i < 5; i++)
+    {
+        if (sensorValues[i] < LINE_THRESHOLD)
+        {
+            activeSensors++;
+        }
+    }
 }
 
 void setup()
@@ -194,16 +201,9 @@ void setup()
 void loop()
 {
     checkPosition();
-    int activeSensors = 0;
-    for (int i = 0; i < 5; i++)
-    {
-        if (sensorValues[i] < LINE_THRESHOLD)
-        {
-            activeSensors++;
-        }
-    }
+    countActiveSensors();
+    atBifurcation = ((sensorValues[0] < LINE_THRESHOLD || sensorValues[1] < LINE_THRESHOLD) && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD));
 
-    atBifurcation = (sensorValues[0] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD) || (sensorValues[1] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD);
     for (int i = 0; i < 5; i++)
     {
         if (sensorValues[i] < LINE_THRESHOLD)
@@ -298,19 +298,24 @@ void loop()
         }
         else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
-            unsigned long start = millis();
-            if (milis() - start > 3000)
-            {
-                while (true)
+            static unsigned long lostTime = 0; // Persistent timer
+
+            if (lostTime == 0)
+            { // First detection
+                lostTime = millis();
+            }
+            else if (millis() - lostTime > 4000)
+            { 
+             
+                while (activeSensors < 1)
                 {
                     moveBackwards(150, 130);
                     checkPosition();
-                    only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                    if (only2)
-                    {
-                        break; // Exit when condition is met
-                    }
+                    countActiveSensors();
+                    if (millis() - lostTime > 15000)
+                        break; // 10s timeout
                 }
+                lostTime = 0; // Reset timer
             }
         }
 
