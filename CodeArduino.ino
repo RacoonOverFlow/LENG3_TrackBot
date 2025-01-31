@@ -31,14 +31,14 @@ int sensorMax[] = {930, 930, 930, 930, 930};
 float sensorValues[5] = {0};
 
 // Motor speed variables
-int baseSpeed = 120;
-int maxSpeed = 140;
+int baseSpeed = 135;
+int maxSpeed = 150;
 
 // PID control variables
 
 float Kp = 12;
 float Ki = 0;
-float Kd = 1.5;
+float Kd = 0.9;
 
 float integral = 0;
 float derivative = 0;
@@ -56,7 +56,7 @@ int lastSensor = -1;
 int targetPosition = 2000;
 int lapCount = 0;
 bool pidEnabled = true;
-int LINE_THRESHOLD = 600;
+int LINE_THRESHOLD = 550;
 unsigned long lapStartTime = 0;
 unsigned long totalTime = 0;
 bool only2 = false;
@@ -227,14 +227,14 @@ void loop()
         motorsPID();
         if (sensorValues[0] < LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
-            stopForDuration(200); // Stop for 400ms
+            stopForDuration(400); // Stop for 400ms
             pidEnabled = false;   // Disable PID during correction
             while (true)
             {
                 moveLeft(85, 120); // Perform correction
                 checkPosition();   // Update sensor readings
                 only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
                     break; // Exit when condition is met
                 }
@@ -244,7 +244,7 @@ void loop()
         }
         else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD)
         {
-            stopForDuration(200); // Stop for 400ms
+            stopForDuration(400); // Stop for 400ms
             pidEnabled = false;   // Disable PID during correction
 
             while (true)
@@ -262,6 +262,7 @@ void loop()
         }
         else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD)
         {
+            stopForDuration(400);
             pidEnabled = false; // Disable PID during correction
 
             while (true)
@@ -279,14 +280,14 @@ void loop()
         }
         else if (sensorValues[0] < LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
-
+            stopForDuration(400);
             pidEnabled = false; // Disable PID during correction
             while (true)
             {
                 moveLeft(90, 110); // Perform correction
                 checkPosition();   // Update sensor readings
                 only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
                     break; // Exit when condition is met
                 }
@@ -366,7 +367,7 @@ void loop()
             lapStartTime = millis();
             sendToRaspberry(lapCount, lapTime, totalTime);
             boolbox = false;
-            setLEDColor(255, 0, 0);
+           setLEDColor(255, 0, 0);
         }
 
         if (atBifurcation && lapCount != 1)
