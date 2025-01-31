@@ -7,8 +7,8 @@ enum RobotState
 
 #include <SoftwareSerial.h>
 
-#define RX_PIN 2
-#define TX_PIN 4
+#define RX_PIN 4
+#define TX_PIN 2
 #define Motor1 12
 #define Motor2 13
 #define PWMmotor1 3
@@ -32,12 +32,13 @@ float sensorValues[5] = {0};
 
 // Motor speed variables
 int baseSpeed = 120;
-int maxSpeed = 138;
+int maxSpeed = 140;
 
 // PID control variables
+
 float Kp = 12;
 float Ki = 0;
-float Kd = 1;
+float Kd = 1.5;
 
 float integral = 0;
 float derivative = 0;
@@ -55,7 +56,7 @@ int lastSensor = -1;
 int targetPosition = 2000;
 int lapCount = 0;
 bool pidEnabled = true;
-int LINE_THRESHOLD = 500;
+int LINE_THRESHOLD = 600;
 unsigned long lapStartTime = 0;
 unsigned long totalTime = 0;
 bool only2 = false;
@@ -65,13 +66,13 @@ RobotState currentState = WAITING;
 
 void sendToRaspberry(int lap, unsigned long lapTime, unsigned long totalTime)
 {
-    Serial.print("{\"lap\":");
-    Serial.print(lap);
-    Serial.print(",\"lapTime\":");
-    Serial.print(lapTime / 1000.0, 2); // Envia o tempo da volta em segundos
-    Serial.print(",\"totalTime\":");
-    Serial.print(totalTime / 1000.0, 2); // Envia o tempo total em segundos
-    Serial.println("}");
+    mySerial.print("{\"lap\":");
+    mySerial.print(lap);
+    mySerial.print(",\"lap_time\":");
+    mySerial.print(lapTime / 1000.0, 2); // Envia o tempo da volta em segundos
+    mySerial.print(",\"total_time\":");
+    mySerial.print(totalTime / 1000.0, 2); // Envia o tempo total em segundos
+    mySerial.println("}");
 }
 
 void stopMotors(int miliseconds)
@@ -149,6 +150,8 @@ void motorsPID()
     pidOutput = (Kp * error) + (Ki * integral) + (Kd * derivative);
     lastError = error;
 
+    integral = constrain(integral, -maxSpeed / 2, maxSpeed / 2);
+
     int leftSpeed = constrain(baseSpeed + 8 + int(pidOutput), 20, maxSpeed + 8);
     int rightSpeed = constrain(baseSpeed - 8 - int(pidOutput), 20, maxSpeed - 10);
     moveForward(leftSpeed, rightSpeed);
@@ -179,6 +182,7 @@ void setup()
     pinMode(pvalue3, INPUT);
     pinMode(pvalue4, INPUT);
 
+    mySerial.begin(9600);    
     Serial.begin(9600);
     lapCount = 0;
     boolbox = false;
@@ -196,7 +200,8 @@ void loop()
         }
     }
 
-    atBifurcation = (sensorValues[0] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD);
+    atBifurcation = ((sensorValues[0] < LINE_THRESHOLD) && sensorValues[4] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD);
+
     for (int i = 0; i < 5; i++)
     {
         if (sensorValues[i] < LINE_THRESHOLD)
@@ -210,26 +215,44 @@ void loop()
         while (analogRead(ldrPin) < 980)
         {
             lapStartTime = millis();
-            setLEDColor(255, 255, 0);
+            setLEDColor(0, 255, 255);
             stopMotors(0);
         }
-        setLEDColor(0, 255, 0);
+        setLEDColor(255, 0, 0);
+        checkPosition();
         currentState = MOVING;
         break;
     case MOVING:
         checkPosition();
         motorsPID();
-
-        if (sensorValues[0] < LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
+        if (sensorValues[0] < LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
-            stopForDuration(400); // Stop for 400ms
+            stopForDuration(200); // Stop for 400ms
             pidEnabled = false;   // Disable PID during correction
             while (true)
             {
-                moveLeft(100, 110); // Perform correction
-                checkPosition();    // Update sensor readings
+                moveLeft(85, 120); // Perform correction
+                checkPosition();   // Update sensor readings
                 only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                if (only2)
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
+                {
+                    break; // Exit when condition is met
+                }
+            }
+
+            pidEnabled = true; // Re-enable PID
+        }
+        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD)
+        {
+            stopForDuration(200); // Stop for 400ms
+            pidEnabled = false;   // Disable PID during correction
+
+            while (true)
+            {
+                moveRight(125, 105); // Perform correction
+                checkPosition();     // Update sensor readings
+                only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
                     break; // Exit when condition is met
                 }
@@ -239,15 +262,14 @@ void loop()
         }
         else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] < LINE_THRESHOLD)
         {
-            stopForDuration(400); // Stop for 400ms
-            pidEnabled = false;   // Disable PID during correction
+            pidEnabled = false; // Disable PID during correction
 
             while (true)
             {
-                moveRight(115, 105); // Perform correction
-                checkPosition();     // Update sensor readings
+                moveRight(125, 80); // Perform correction
+                checkPosition();    // Update sensor readings
                 only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
-                if (only2 || sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] < LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
                 {
                     break; // Exit when condition is met
                 }
@@ -255,44 +277,45 @@ void loop()
 
             pidEnabled = true; // Re-enable PID
         }
-        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && lastSensor == 0)
+        else if (sensorValues[0] < LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
         {
-            unsigned long start = millis();
-            while (millis() - start < 300)
+
+            pidEnabled = false; // Disable PID during correction
+            while (true)
             {
-                stopForDuration(200);
-                moveLeft(85, 95);
+                moveLeft(90, 110); // Perform correction
+                checkPosition();   // Update sensor readings
+                only2 = sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD;
+                if (only2 || (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] < LINE_THRESHOLD && sensorValues[2] < LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD))
+                {
+                    break; // Exit when condition is met
+                }
             }
+
+            pidEnabled = true; // Re-enable PID
         }
-        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD && lastSensor == 4)
+        else if (activeSensors >= 4)
         {
+            pidEnabled = false;
             unsigned long start = millis();
-            while (millis() - start < 300)
+            while (millis() - start < 800)
             {
-                stopForDuration(200);
-                moveRight(85, 95);
+                moveForward(118, 100);
             }
+            pidEnabled = true;
         }
-        else if (sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD)
+        else if ((sensorValues[0] > LINE_THRESHOLD && sensorValues[1] > LINE_THRESHOLD && sensorValues[2] > LINE_THRESHOLD && sensorValues[3] > LINE_THRESHOLD && sensorValues[4] > LINE_THRESHOLD) && (position > 3000 || position < 1000 || position == 2000))
         {
-            unsigned long start = millis();
-            while (millis() - start < 300)
-            {
-                moveBackwards(70, 40);
-                checkPosition();
-                if (error < 1000)
+                while (true)
+                {
+                    moveBackwards(100,90);
+                    checkPosition();
+                if (sensorValues[0] < LINE_THRESHOLD || sensorValues[1] < LINE_THRESHOLD || sensorValues[2] < LINE_THRESHOLD || sensorValues[3] < LINE_THRESHOLD || sensorValues[4] < LINE_THRESHOLD)
                 {
                     break;
                 }
             }
-        }
-        else if (activeSensors >= 4)
-        {
-            unsigned long start = millis();
-            while (millis() - start < 800)
-            {
-                moveForward(70, 40);
-            }
+
         }
 
         if (atBifurcation)
@@ -332,7 +355,7 @@ void loop()
             }
 
             // Pit stop pause (non-blocking)
-            setLEDColor(255, 255, 0);
+            setLEDColor(255, 255, 255);
             stopForDuration(3000); // Stop for 3 seconds
             Serial.println("Pit stop!");
 
@@ -343,7 +366,7 @@ void loop()
             lapStartTime = millis();
             sendToRaspberry(lapCount, lapTime, totalTime);
             boolbox = false;
-            setLEDColor(0, 255, 0);
+            setLEDColor(255, 0, 0);
         }
 
         if (atBifurcation && lapCount != 1)
@@ -359,9 +382,9 @@ void loop()
             currentState = STOPPED;
         }
 
-        if (abs(error) < 300)
+        if (abs(error) < 400)
         {
-            setLEDColor(0, 0, 255);
+            setLEDColor(255, 0, 0);
         }
         else
         {
@@ -371,7 +394,7 @@ void loop()
 
     case STOPPED:
         stopForDuration(1000);
-        setLEDColor(255, 0, 0);
+        setLEDColor(100, 100, 255);
         break;
     }
 }
